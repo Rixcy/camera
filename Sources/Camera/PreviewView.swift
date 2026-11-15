@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 /// Live camera feed, filling its bounds, flipped left-to-right when
-/// `mirrored` is set.
+/// `mirrored` is set. Dragging the feed moves the window.
 struct PreviewView: NSViewRepresentable {
     let previewLayer: AVCaptureVideoPreviewLayer
     let mirrored: Bool
@@ -16,7 +16,7 @@ struct PreviewView: NSViewRepresentable {
     }
 }
 
-final class PreviewNSView: NSView {
+final class PreviewNSView: WindowDragNSView {
     private let previewLayer: AVCaptureVideoPreviewLayer
 
     var mirrored = false {
@@ -33,9 +33,6 @@ final class PreviewNSView: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-
-    /// The title bar is hidden, so let the whole feed drag the window.
-    override var mouseDownCanMoveWindow: Bool { true }
 
     override func layout() {
         super.layout()
