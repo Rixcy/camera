@@ -31,21 +31,23 @@ certificate and keep the permission between builds.
 | See your last photo | Click the thumbnail (reveals it in Finder) |
 | Close | Esc or ⌘W (quits the app and turns the camera off) |
 
-Photos are saved as JPEGs to `~/Pictures/Camera`, mirrored the way the
-preview shows them. Built-in, external, iPhone (Continuity Camera) and Desk
+Photos are saved as full-resolution JPEGs to `~/Pictures/Camera`. They are
+tagged to display mirrored, matching the preview (the pixels aren't
+re-encoded; apps that strip EXIF orientation will show them unmirrored). Built-in, external, iPhone (Continuity Camera) and Desk
 View cameras are supported; the app reopens whichever camera you used last.
 The camera turns off while the app is hidden (⌘H).
 
 ## Develop
 
 ```sh
-make test   # unit tests for camera ordering and photo naming
+make test   # unit tests for CameraCore
 make run    # build build/Camera.app and open it
 make clean
 ```
 
 - `Sources/CameraCore` — hardware-free logic (camera ordering and cycling,
-  photo file names), covered by `Tests/CameraCoreTests`.
+  photo file names, EXIF mirroring, thumbnails), covered by
+  `Tests/CameraCoreTests`.
 - `Sources/Camera` — the SwiftUI app: `CaptureEngine` owns the
   `AVCaptureSession` on its own queue, `CameraController` is the window's
   model, `ContentView` is the UI.

@@ -7,11 +7,13 @@ import CameraCore
 final class CaptureEngine: @unchecked Sendable {
     enum EngineError: LocalizedError {
         case cameraUnavailable(String)
+        case notReady
         case noPhotoData
 
         var errorDescription: String? {
             switch self {
             case .cameraUnavailable(let name): "Couldn't open \(name)."
+            case .notReady: "The camera isn't ready yet."
             case .noPhotoData: "The camera didn't return a photo."
             }
         }
@@ -24,6 +26,9 @@ final class CaptureEngine: @unchecked Sendable {
     private let photoOutput = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "Camera.CaptureEngine")
     private var input: AVCaptureDeviceInput?
+    /// False while the app is hidden, so a camera switch or a fallback after
+    /// an unplug doesn't turn the camera back on behind the user's back.
+    private var wantsRunning = true
     private var pendingCaptures: [Int64: PhotoCaptureDelegate] = [:]
 
     private static let deviceTypes: [AVCaptureDevice.DeviceType] = [
@@ -35,7 +40,8 @@ final class CaptureEngine: @unchecked Sendable {
         previewLayer.videoGravity = .resizeAspectFill
         queue.async { [self] in
             session.beginConfiguration()
-            session.sessionPreset = .high
+            // .photo gives full-resolution stills; .high caps them at the video size.
+            session.sessionPreset = session.canSetSessionPreset(.photo) ? .photo : .high
             if session.canAddOutput(photoOutput) {
                 session.addOutput(photoOutput)
             }
@@ -43,7 +49,7 @@ final class CaptureEngine: @unchecked Sendable {
         }
     }
 
-    /// Cameras currently connected. Safe to call from any thread.
+    /// Safe to call from any thread.
     static func availableCameras() -> [CameraInfo] {
         AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes, mediaType: .video, position: .unspecified)
             .devices
@@ -60,79 +66,109 @@ final class CaptureEngine: @unchecked Sendable {
         }
     }
 
-    /// Swaps the session's input to `camera` and starts the session.
+    /// On failure the session is left with no camera and stopped, so the
+    /// error screen never sits over a camera whose light is still on.
     func use(_ camera: CameraInfo, completion: @escaping @Sendable (Error?) -> Void) {
         queue.async { [self] in
-            guard let device = AVCaptureDevice(uniqueID: camera.id),
-                  let newInput = try? AVCaptureDeviceInput(device: device)
-            else {
-                completion(EngineError.cameraUnavailable(camera.name))
-                return
+            do {
+                try attach(camera)
+                if wantsRunning, !session.isRunning { session.startRunning() }
+                completion(nil)
+            } catch {
+                detach()
+                completion(error)
             }
-            session.beginConfiguration()
-            if let input { session.removeInput(input) }
-            guard session.canAddInput(newInput) else {
-                if let input { session.addInput(input) }
-                session.commitConfiguration()
-                completion(EngineError.cameraUnavailable(camera.name))
-                return
-            }
-            session.addInput(newInput)
-            input = newInput
-            // Removing the old input dropped its preview connection; wire the new one.
-            if let port = newInput.ports.first(where: { $0.mediaType == .video }) {
-                let preview = AVCaptureConnection(inputPort: port, videoPreviewLayer: previewLayer)
-                if session.canAddConnection(preview) { session.addConnection(preview) }
-            }
-            for connection in [previewLayer.connection, photoOutput.connection(with: .video)] {
-                guard let connection, connection.isVideoMirroringSupported else { continue }
-                connection.automaticallyAdjustsVideoMirroring = false
-                connection.isVideoMirrored = false
-            }
-            session.commitConfiguration()
-            if !session.isRunning { session.startRunning() }
-            completion(nil)
         }
+    }
+
+    private func attach(_ camera: CameraInfo) throws {
+        let unavailable = EngineError.cameraUnavailable(camera.name)
+        guard let device = AVCaptureDevice(uniqueID: camera.id),
+              let newInput = try? AVCaptureDeviceInput(device: device)
+        else { throw unavailable }
+
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
+        if let input { session.removeInput(input) }
+        input = nil
+        guard session.canAddInput(newInput) else { throw unavailable }
+        session.addInput(newInput)
+        input = newInput
+
+        // macOS connects the preview layer to a new input by itself, even one
+        // made with sessionWithNoConnection; add a connection only if it didn't.
+        func feedsPreview(from input: AVCaptureInput) -> Bool {
+            previewLayer.connection?.inputPorts.contains { $0.input === input } == true
+        }
+        if !feedsPreview(from: newInput),
+           let port = newInput.ports.first(where: { $0.mediaType == .video }) {
+            let connection = AVCaptureConnection(inputPort: port, videoPreviewLayer: previewLayer)
+            if session.canAddConnection(connection) { session.addConnection(connection) }
+        }
+        // Without a preview connection the window would stay black.
+        guard feedsPreview(from: newInput), let preview = previewLayer.connection else { throw unavailable }
+
+        for connection in [preview, photoOutput.connection(with: .video)].compactMap({ $0 })
+        where connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = false
+        }
+    }
+
+    private func detach() {
+        session.beginConfiguration()
+        if let input { session.removeInput(input) }
+        input = nil
+        session.commitConfiguration()
+        if session.isRunning { session.stopRunning() }
     }
 
     func start() {
         queue.async { [self] in
+            wantsRunning = true
             if input != nil, !session.isRunning { session.startRunning() }
         }
     }
 
     func stop() {
         queue.async { [self] in
+            wantsRunning = false
             if session.isRunning { session.stopRunning() }
         }
     }
 
-    /// Stops the camera before returning, so the green light is off by the
-    /// time the app exits.
+    /// Blocks so the camera light is off by the time the app exits.
     func stopAndWait() {
         queue.sync {
+            wantsRunning = false
             if session.isRunning { session.stopRunning() }
         }
     }
 
-    /// Captures a JPEG and hands back its encoded bytes, tagged to display
-    /// mirrored when `mirrored` is set so it matches the preview.
+    /// Hands back JPEG bytes, tagged to display mirrored when `mirrored` is
+    /// set so the photo matches the preview.
     func capturePhoto(mirrored: Bool, completion: @escaping @Sendable (Result<Data, Error>) -> Void) {
         queue.async { [self] in
-            guard session.isRunning, photoOutput.connection(with: .video) != nil else {
-                completion(.failure(EngineError.noPhotoData))
+            // capturePhoto raises an uncatchable exception without a live
+            // video connection, e.g. right after the camera is unplugged.
+            guard session.isRunning,
+                  let connection = photoOutput.connection(with: .video),
+                  connection.isActive, connection.isEnabled,
+                  photoOutput.availablePhotoCodecTypes.contains(.jpeg)
+            else {
+                completion(.failure(EngineError.notReady))
                 return
             }
             let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
             let id = settings.uniqueID
-            // The delegate is retained here until AVFoundation reports back.
             let delegate = PhotoCaptureDelegate { [self] result in
                 queue.async { self.pendingCaptures[id] = nil }
-                completion(result.flatMap { data in
-                    guard mirrored else { return .success(data) }
-                    return PhotoMirroring.mirrored(data).map(Result.success) ?? .failure(EngineError.noPhotoData)
+                completion(result.map { data in
+                    // A photo that can't be re-tagged is still worth keeping.
+                    mirrored ? PhotoMirroring.mirrored(data) ?? data : data
                 })
             }
+            // AVFoundation holds its delegate weakly.
             pendingCaptures[id] = delegate
             photoOutput.capturePhoto(with: settings, delegate: delegate)
         }
@@ -141,6 +177,7 @@ final class CaptureEngine: @unchecked Sendable {
 
 private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
     private let completion: (Result<Data, Error>) -> Void
+    private var result: Result<Data, Error>?
 
     init(completion: @escaping (Result<Data, Error>) -> Void) {
         self.completion = completion
@@ -148,11 +185,17 @@ private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegat
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         if let error {
-            completion(.failure(error))
+            result = .failure(error)
         } else if let data = photo.fileDataRepresentation() {
-            completion(.success(data))
+            result = .success(data)
         } else {
-            completion(.failure(CaptureEngine.EngineError.noPhotoData))
+            result = .failure(CaptureEngine.EngineError.noPhotoData)
         }
+    }
+
+    /// Always the last callback, even when processing never ran (for
+    /// example the session stopped mid-capture), so cleanup lives here.
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
+        completion(result ?? .failure(error ?? CaptureEngine.EngineError.noPhotoData))
     }
 }

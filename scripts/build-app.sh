@@ -18,6 +18,10 @@ if [[ ! -f "$icon" || "$root/scripts/make-icon.swift" -nt "$icon" ]]; then
   iconutil -c icns "$build/AppIcon.iconset" -o "$icon"
 fi
 
+# Keep Spotlight from listing this build next to the installed app.
+mkdir -p "$build"
+touch "$build/.metadata_never_index"
+
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/Camera" "$app/Contents/MacOS/Camera"

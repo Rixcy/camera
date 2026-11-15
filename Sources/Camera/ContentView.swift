@@ -37,7 +37,7 @@ struct ContentView: View {
                     symbol: "exclamationmark.triangle",
                     title: "Camera unavailable",
                     detail: message,
-                    action: camera.current.map { current in ("Try Again", { camera.select(current) }) }
+                    action: camera.current.map { _ in ("Try Again", { camera.retry() }) }
                 )
             }
 
@@ -68,11 +68,17 @@ struct ContentView: View {
             focused = true
             camera.start()
         }
-        .onKeyPress(keys: [.space, .return]) { _ in
+        // Coming back from Finder or another app can leave nothing focused,
+        // and the key handlers only fire while this view has focus.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            focused = true
+        }
+        // Key-down only: holding a key must not repeat the action.
+        .onKeyPress(keys: [.space, .return], phases: .down) { _ in
             camera.takePhoto()
             return .handled
         }
-        .onKeyPress(.tab) {
+        .onKeyPress(.tab, phases: .down) { _ in
             camera.selectNext()
             return .handled
         }
@@ -165,11 +171,15 @@ private struct LastPhotoButton: View {
                 .font(.caption)
                 .foregroundStyle(.white)
                 .lineLimit(2)
-        } else if let url = camera.lastPhoto, let image = NSImage(contentsOf: url) {
+        } else if let photo = camera.lastPhoto {
             Button(action: camera.revealLastPhoto) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
+                Group {
+                    if let thumbnail = photo.thumbnail {
+                        Image(nsImage: thumbnail).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "photo").font(.title3).foregroundStyle(.white)
+                    }
+                }
                     .frame(width: 44, height: 44)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.8), lineWidth: 1.5))
