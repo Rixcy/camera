@@ -14,10 +14,17 @@ struct ContentView: View {
 
             switch camera.status {
             case .starting, .running:
-                PreviewView(
-                    previewLayer: camera.engine.previewLayer,
-                    mirrored: camera.current?.isMirrored ?? true
-                )
+                if let feed = camera.standInFeed {
+                    Color.clear
+                        .overlay { Image(nsImage: feed).resizable().scaledToFill() }
+                        .clipped()
+                        .allowsHitTesting(false)
+                } else {
+                    PreviewView(
+                        previewLayer: camera.engine.previewLayer,
+                        mirrored: camera.current?.isMirrored ?? true
+                    )
+                }
             case .denied:
                 MessageView(
                     symbol: "video.slash",
