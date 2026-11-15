@@ -30,6 +30,8 @@ final class CameraController: ObservableObject {
     /// Bumped on every shutter press so the view can flash.
     @Published private(set) var shutterCount = 0
     @Published private(set) var photoError: String?
+    /// Shown instead of the live feed when set. Only screenshots set it.
+    @Published private(set) var standInFeed: NSImage?
 
     let engine = CaptureEngine()
     private var started = false
@@ -48,6 +50,12 @@ final class CameraController: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        #if DEBUG
+        if let directory = Screenshots.directory {
+            Screenshots.take(of: self, into: directory)
+            return
+        }
+        #endif
         observeNotifications()
 
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -192,3 +200,16 @@ final class CameraController: ObservableObject {
         select(camera, remember: false)
     }
 }
+
+#if DEBUG
+extension CameraController {
+    /// Shows `current` as live on a still image, without touching the camera.
+    func stage(feed: NSImage, cameras: [CameraInfo], current: CameraInfo, lastPhoto: Photo?) {
+        standInFeed = feed
+        self.cameras = cameras
+        self.current = current
+        self.lastPhoto = lastPhoto
+        status = .running
+    }
+}
+#endif

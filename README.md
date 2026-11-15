@@ -4,6 +4,11 @@ A tiny macOS app that does one thing: open it from Spotlight, see yourself,
 take a photo or switch cameras, and close it. Like Raycast's "Show Camera",
 as a standalone app.
 
+<p>
+  <img src="docs/camera.png" width="49%" alt="The Camera window: the live feed with a photo thumbnail, shutter button and switch-camera button along the bottom">
+  <img src="docs/switching.png" width="49%" alt="The Camera window just after switching cameras, with the new camera's name shown at the top">
+</p>
+
 ## Install
 
 Requires macOS 14+ and the Xcode command line tools.
@@ -12,14 +17,9 @@ Requires macOS 14+ and the Xcode command line tools.
 make install
 ```
 
-This builds `Camera.app`, copies it to `~/Applications` (override with
-`INSTALL_DIR=/Applications make install`) and registers it with Spotlight.
-Press ⌘Space, type "camera", hit Return. The first launch asks for camera
-access.
-
-The app is ad-hoc signed, so macOS asks for camera access again after each
-reinstall. Set `SIGN_IDENTITY="Apple Development: …"` to sign with your own
-certificate and keep the permission between builds.
+Then press ⌘Space, type "camera" and hit Return. It installs to
+`~/Applications` (change with `INSTALL_DIR`). Set `SIGN_IDENTITY` to your
+signing certificate to keep camera access between reinstalls.
 
 ## Use
 
@@ -29,30 +29,19 @@ certificate and keep the permission between builds.
 | Switch to the next camera | Tab, or click the switch button |
 | Pick a camera | Hold the switch button, the Camera menu, or ⌘1–⌘9 |
 | See your last photo | Click the thumbnail (reveals it in Finder) |
-| Close | Esc or ⌘W (quits the app and turns the camera off) |
+| Close | Esc or ⌘W |
 
-Photos are saved as full-resolution JPEGs to `~/Pictures/Camera`. They are
-tagged to display mirrored, matching the preview (the pixels aren't
-re-encoded; apps that strip EXIF orientation will show them unmirrored). Built-in, external, iPhone (Continuity Camera) and Desk
-View cameras are supported; the app reopens whichever camera you used last.
-The camera turns off while the app is hidden (⌘H).
+Photos are saved to `~/Pictures/Camera`. Built-in, external, iPhone and Desk
+View cameras all work, and the app reopens the one you used last. The camera
+turns off when you close or hide the app.
 
 ## Develop
 
 ```sh
-make test   # unit tests for CameraCore
-make run    # build build/Camera.app and open it
-make clean
+make test         # unit tests
+make run          # build and open build/Camera.app
+make screenshots  # retake the images above
 ```
-
-- `Sources/CameraCore` — hardware-free logic (camera ordering and cycling,
-  photo file names, EXIF mirroring, thumbnails), covered by
-  `Tests/CameraCoreTests`.
-- `Sources/Camera` — the SwiftUI app: `CaptureEngine` owns the
-  `AVCaptureSession` on its own queue, `CameraController` is the window's
-  model, `ContentView` is the UI.
-- `scripts/build-app.sh` assembles and signs the `.app` bundle;
-  `scripts/make-icon.swift` draws the icon.
 
 ## License
 
