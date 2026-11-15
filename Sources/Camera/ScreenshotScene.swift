@@ -19,6 +19,8 @@ enum ScreenshotScene {
             transform.translateX(by: -focus.x, yBy: -focus.y)
             transform.concat()
             drawWall()
+            drawWindow()
+            drawShelf()
             drawOrc()
             return true
         }
@@ -29,8 +31,9 @@ enum ScreenshotScene {
     private static func drawWall() {
         NSGradient(starting: rgb(0.93, 0.84, 0.70), ending: rgb(0.78, 0.65, 0.51))!
             .draw(in: NSRect(origin: .zero, size: size), angle: -90)
+    }
 
-        // A window onto hills at dusk.
+    private static func drawWindow() {
         fill(rgb(0.45, 0.30, 0.20), NSBezierPath(rect: NSRect(x: 130, y: 420, width: 320, height: 380)))
         let glass = NSRect(x: 150, y: 440, width: 280, height: 340)
         NSGradient(colors: [
@@ -50,8 +53,9 @@ enum ScreenshotScene {
         fill(rgb(0.45, 0.30, 0.20), NSBezierPath(rect: NSRect(x: 284, y: 440, width: 12, height: 340)))
         fill(rgb(0.45, 0.30, 0.20), NSBezierPath(rect: NSRect(x: 150, y: 604, width: 280, height: 12)))
         fill(rgb(0.56, 0.39, 0.27), NSBezierPath(rect: NSRect(x: 115, y: 404, width: 350, height: 22)))
+    }
 
-        // A shelf with books and a plant.
+    private static func drawShelf() {
         fill(rgb(0.56, 0.39, 0.27), NSBezierPath(rect: NSRect(x: 1110, y: 440, width: 300, height: 18)))
         let books: [(x: CGFloat, width: CGFloat, height: CGFloat, color: NSColor)] = [
             (1130, 34, 110, rgb(0.62, 0.22, 0.20)),
@@ -123,7 +127,6 @@ enum ScreenshotScene {
         body.addClip()
         // The resting arm reaches down to the desk.
         stroke(tunicShade, width: 84, from: NSPoint(x: 570, y: 360), to: NSPoint(x: 600, y: 200))
-        // A strap across the chest, with a buckle.
         stroke(leather, width: 28, from: NSPoint(x: 590, y: 430), to: NSPoint(x: 900, y: 40))
         fill(gold, NSBezierPath(roundedRect: NSRect(x: 712, y: 248, width: 40, height: 40), xRadius: 6, yRadius: 6))
         NSGraphicsContext.restoreGraphicsState()
@@ -133,7 +136,7 @@ enum ScreenshotScene {
     }
 
     private static func drawHead() {
-        // Pointed ears, behind the head.
+        // The ears go behind the head.
         for side in [-1.0, 1.0] as [CGFloat] {
             let ear = NSBezierPath()
             ear.move(to: NSPoint(x: 720 + side * 100, y: 610))
@@ -155,15 +158,13 @@ enum ScreenshotScene {
         gold.setStroke()
         ring.stroke()
 
-        // Skull and a heavy jaw.
         fill(skin, NSBezierPath(ovalIn: NSRect(x: 600, y: 450, width: 240, height: 250)))
         fill(skin, NSBezierPath(ovalIn: NSRect(x: 588, y: 436, width: 264, height: 150)))
 
-        // Topknot.
         fill(rgb(0.16, 0.12, 0.12), NSBezierPath(ovalIn: NSRect(x: 683, y: 688, width: 74, height: 64)))
         fill(rgb(0.70, 0.24, 0.20), NSBezierPath(roundedRect: NSRect(x: 698, y: 684, width: 44, height: 16), xRadius: 6, yRadius: 6))
 
-        // Friendly brows, eyes and blush.
+        // Brows lower at the outer ends read as friendly; the other way round, as angry.
         stroke(skinDark, width: 16, from: NSPoint(x: 648, y: 616), to: NSPoint(x: 700, y: 626))
         stroke(skinDark, width: 16, from: NSPoint(x: 792, y: 616), to: NSPoint(x: 740, y: 626))
         for x in [676, 764] as [CGFloat] {
@@ -172,13 +173,11 @@ enum ScreenshotScene {
             fill(rgb(0.90, 0.45, 0.35, 0.3), NSBezierPath(ovalIn: NSRect(x: x - 34 + (x < 720 ? -14 : 14), y: 520, width: 68, height: 34)))
         }
 
-        // Broad nose.
         fill(skinShade, NSBezierPath(ovalIn: NSRect(x: 690, y: 538, width: 60, height: 38)))
         for x in [706, 734] as [CGFloat] {
             fill(skinDark, NSBezierPath(ovalIn: NSRect(x: x - 5, y: 544, width: 10, height: 8)))
         }
 
-        // Grin, with tusks over the top lip.
         let mouth = NSBezierPath()
         mouth.move(to: NSPoint(x: 660, y: 518))
         mouth.curve(to: NSPoint(x: 780, y: 518),
@@ -215,7 +214,7 @@ enum ScreenshotScene {
         stroke(skinShade, width: 5, from: NSPoint(x: -22, y: -8), to: NSPoint(x: 18, y: 4))
         NSGraphicsContext.restoreGraphicsState()
 
-        // Motion lines beside the hand.
+        // Arcs beside the hand show it moving.
         for (radius, start, end) in [(150, -15, 35), (184, -5, 25)] as [(CGFloat, CGFloat, CGFloat)] {
             let arc = NSBezierPath()
             arc.appendArc(withCenter: NSPoint(x: 1062, y: 660), radius: radius, startAngle: start, endAngle: end)
