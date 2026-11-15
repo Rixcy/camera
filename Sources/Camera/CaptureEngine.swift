@@ -18,6 +18,9 @@ final class CaptureEngine: @unchecked Sendable {
     }
 
     let session = AVCaptureSession()
+    /// Shows the raw feed. Mirroring is a layer transform applied by the
+    /// view, so the connection is pinned unmirrored to avoid a double flip.
+    let previewLayer: AVCaptureVideoPreviewLayer
     private let photoOutput = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "Camera.CaptureEngine")
     private var input: AVCaptureDeviceInput?
@@ -28,6 +31,8 @@ final class CaptureEngine: @unchecked Sendable {
     ]
 
     init() {
+        previewLayer = AVCaptureVideoPreviewLayer(sessionWithNoConnection: session)
+        previewLayer.videoGravity = .resizeAspectFill
         queue.async { [self] in
             session.beginConfiguration()
             session.sessionPreset = .high
@@ -74,9 +79,15 @@ final class CaptureEngine: @unchecked Sendable {
             }
             session.addInput(newInput)
             input = newInput
-            if let connection = photoOutput.connection(with: .video), connection.isVideoMirroringSupported {
+            // Removing the old input dropped its preview connection; wire the new one.
+            if let port = newInput.ports.first(where: { $0.mediaType == .video }) {
+                let preview = AVCaptureConnection(inputPort: port, videoPreviewLayer: previewLayer)
+                if session.canAddConnection(preview) { session.addConnection(preview) }
+            }
+            for connection in [previewLayer.connection, photoOutput.connection(with: .video)] {
+                guard let connection, connection.isVideoMirroringSupported else { continue }
                 connection.automaticallyAdjustsVideoMirroring = false
-                connection.isVideoMirrored = camera.isMirrored
+                connection.isVideoMirrored = false
             }
             session.commitConfiguration()
             if !session.isRunning { session.startRunning() }
@@ -104,8 +115,9 @@ final class CaptureEngine: @unchecked Sendable {
         }
     }
 
-    /// Captures a JPEG and hands back its encoded bytes.
-    func capturePhoto(completion: @escaping @Sendable (Result<Data, Error>) -> Void) {
+    /// Captures a JPEG and hands back its encoded bytes, tagged to display
+    /// mirrored when `mirrored` is set so it matches the preview.
+    func capturePhoto(mirrored: Bool, completion: @escaping @Sendable (Result<Data, Error>) -> Void) {
         queue.async { [self] in
             guard session.isRunning, photoOutput.connection(with: .video) != nil else {
                 completion(.failure(EngineError.noPhotoData))
@@ -116,7 +128,10 @@ final class CaptureEngine: @unchecked Sendable {
             // The delegate is retained here until AVFoundation reports back.
             let delegate = PhotoCaptureDelegate { [self] result in
                 queue.async { self.pendingCaptures[id] = nil }
-                completion(result)
+                completion(result.flatMap { data in
+                    guard mirrored else { return .success(data) }
+                    return PhotoMirroring.mirrored(data).map(Result.success) ?? .failure(EngineError.noPhotoData)
+                })
             }
             pendingCaptures[id] = delegate
             photoOutput.capturePhoto(with: settings, delegate: delegate)

@@ -33,7 +33,6 @@ final class CameraController: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: Self.rememberedCameraKey) }
     }
 
-    var session: AVCaptureSession { engine.session }
 
     /// Asks for camera access if needed, then opens the preferred camera.
     func start() {
@@ -76,7 +75,7 @@ final class CameraController: ObservableObject {
         guard status == .running else { return }
         shutterCount += 1
         photoError = nil
-        engine.capturePhoto { result in
+        engine.capturePhoto(mirrored: current?.isMirrored ?? true) { result in
             let saved = result.flatMap(Self.save)
             Task { @MainActor in
                 switch saved {

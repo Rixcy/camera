@@ -27,9 +27,13 @@ private struct CameraCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Camera") {
+            // Menu key equivalents fire whether or not the window has focus;
+            // ContentView's key handlers cover Return and Esc.
             Button("Take Photo") { camera.takePhoto() }
+                .keyboardShortcut(.space, modifiers: [])
                 .disabled(camera.status != .running)
             Button("Switch Camera") { camera.selectNext() }
+                .keyboardShortcut(.tab, modifiers: [])
                 .disabled(camera.cameras.count < 2)
             Divider()
             ForEach(Array(camera.cameras.enumerated()), id: \.element.id) { index, info in

@@ -14,8 +14,10 @@ struct ContentView: View {
 
             switch camera.status {
             case .starting, .running:
-                PreviewView(session: camera.session)
-                    .scaleEffect(x: camera.current?.isMirrored == false ? 1 : -1, y: 1)
+                PreviewView(
+                    previewLayer: camera.engine.previewLayer,
+                    mirrored: camera.current?.isMirrored ?? true
+                )
             case .denied:
                 MessageView(
                     symbol: "video.slash",
@@ -79,8 +81,11 @@ struct ContentView: View {
             return .handled
         }
         .onChange(of: camera.shutterCount) {
-            flash = true
-            withAnimation(.easeOut(duration: 0.35)) { flash = false }
+            withAnimation(.easeOut(duration: 0.05)) {
+                flash = true
+            } completion: {
+                withAnimation(.easeOut(duration: 0.3)) { flash = false }
+            }
         }
         .onChange(of: camera.current) { old, new in
             // Announce switches, not the first camera opening.
@@ -105,9 +110,12 @@ private struct ControlBar: View {
     let refocus: () -> Void
 
     var body: some View {
+        // The side slots always take equal space, even when empty, so the
+        // shutter stays centred.
         HStack {
-            LastPhotoButton()
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Color.clear
+                .frame(height: 54)
+                .overlay(alignment: .leading) { LastPhotoButton() }
 
             ShutterButton {
                 camera.takePhoto()
@@ -115,8 +123,9 @@ private struct ControlBar: View {
             }
             .disabled(camera.status != .running)
 
-            CameraMenu(refocus: refocus)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            Color.clear
+                .frame(height: 54)
+                .overlay(alignment: .trailing) { CameraMenu(refocus: refocus) }
         }
         .padding(.horizontal, 20)
         .padding(.top, 28)
