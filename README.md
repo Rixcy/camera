@@ -9,7 +9,18 @@ as a standalone app.
   <img src="docs/switching.png" width="49%" alt="The same orc from further back after switching to the display camera, with the new camera's name shown at the top">
 </p>
 
-## Install
+## Download
+
+Requires macOS 14+. Grab `Camera-<version>.zip` from the
+[latest release](https://github.com/Rixcy/camera/releases/latest), unzip it and
+drag `Camera.app` into Applications. Then press ⌘Space, type "camera" and hit
+Return.
+
+If a release isn't notarized, macOS blocks the first launch. Allow it once in
+System Settings → Privacy & Security → Open Anyway, or run
+`xattr -dr com.apple.quarantine /Applications/Camera.app`.
+
+## Build from source
 
 Requires macOS 14+ and the Xcode command line tools.
 
@@ -17,7 +28,7 @@ Requires macOS 14+ and the Xcode command line tools.
 make install
 ```
 
-Then press ⌘Space, type "camera" and hit Return. It installs to
+Then open it from Spotlight the same way. It installs to
 `~/Applications` (change with `INSTALL_DIR`). Set `SIGN_IDENTITY` to your
 signing certificate to keep camera access between reinstalls.
 
@@ -41,7 +52,13 @@ turns off when you close or hide the app.
 make test         # unit tests
 make run          # build and open build/Camera.app
 make screenshots  # retake the images above
+make package      # build/Camera-<version>.zip, a universal app as released
 ```
+
+Pushing a `v*` tag (for example `git tag v1.1.0 && git push origin v1.1.0`)
+runs `.github/workflows/release.yml`, which tests, packages and publishes that
+zip as a GitHub release. Add the secrets listed at the top of the workflow to
+sign and notarize it with a Developer ID certificate.
 
 ## License
 
