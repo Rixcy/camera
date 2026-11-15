@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# Builds build/Camera.app. Set SIGN_IDENTITY to sign with a real certificate
-# (ad-hoc signing is the default).
+# Builds build/Camera.app.
+#   SIGN_IDENTITY  signing certificate (ad-hoc by default); a real identity also
+#                  turns on the hardened runtime that notarization needs
+#   ARCHS          architectures to build, e.g. "arm64 x86_64" for a universal app
+#   VERSION        stamped into Info.plist, e.g. 1.2.0
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 config="${CONFIG:-release}"
 build="$root/build"
 app="$build/Camera.app"
+identity="${SIGN_IDENTITY:--}"
 
-swift build -c "$config" --package-path "$root" --product Camera
-bin="$(swift build -c "$config" --package-path "$root" --show-bin-path)"
+swift_args=(-c "$config" --package-path "$root")
+for arch in ${ARCHS:-}; do swift_args+=(--arch "$arch"); done
+swift build "${swift_args[@]}" --product Camera
+bin="$(swift build "${swift_args[@]}" --show-bin-path)"
 
 icon="$build/AppIcon.icns"
 if [[ ! -f "$icon" || "$root/scripts/make-icon.swift" -nt "$icon" ]]; then
@@ -28,5 +34,16 @@ cp "$bin/Camera" "$app/Contents/MacOS/Camera"
 cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
 
-codesign --force --sign "${SIGN_IDENTITY:--}" "$app"
+if [[ -n "${VERSION:-}" ]]; then
+  plist="$app/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$plist"
+fi
+
+if [[ "$identity" == "-" ]]; then
+  codesign --force --sign - "$app"
+else
+  codesign --force --sign "$identity" --options runtime --timestamp \
+    --entitlements "$root/Resources/Camera.entitlements" "$app"
+fi
 echo "Built $app"
