@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Retakes the README screenshots in docs/. The Camera window opens for a
-# couple of seconds on a drawn scene; the real camera stays off.
+# couple of seconds on a drawn orc; the real camera stays off.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"

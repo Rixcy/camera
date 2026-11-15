@@ -5,8 +5,8 @@ take a photo or switch cameras, and close it. Like Raycast's "Show Camera",
 as a standalone app.
 
 <p>
-  <img src="docs/camera.png" width="49%" alt="The Camera window: the live feed with a photo thumbnail, shutter button and switch-camera button along the bottom">
-  <img src="docs/switching.png" width="49%" alt="The Camera window just after switching cameras, with the new camera's name shown at the top">
+  <img src="docs/camera.png" width="49%" alt="The Camera window: a cartoon orc waving close up on the built-in camera, with a photo thumbnail, shutter button and switch-camera button along the bottom">
+  <img src="docs/switching.png" width="49%" alt="The same orc from further back after switching to the display camera, with the new camera's name shown at the top">
 </p>
 
 ## Install
