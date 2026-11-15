@@ -53,3 +53,7 @@ make clean
   model, `ContentView` is the UI.
 - `scripts/build-app.sh` assembles and signs the `.app` bundle;
   `scripts/make-icon.swift` draws the icon.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

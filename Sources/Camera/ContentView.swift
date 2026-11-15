@@ -10,7 +10,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            WindowDragArea()
 
             switch camera.status {
             case .starting, .running:
@@ -54,6 +54,7 @@ struct ContentView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                         .padding(.top, 36)
                         .transition(.opacity)
+                        .allowsHitTesting(false)
                 }
                 Spacer()
                 ControlBar(refocus: { focused = true })
@@ -232,14 +233,18 @@ private struct MessageView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
-            Text(title).font(.title3.weight(.semibold))
-            Text(detail)
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+            // Only the button takes clicks, so the window drags from the text too.
+            Group {
+                Image(systemName: symbol)
+                    .font(.system(size: 34, weight: .light))
+                Text(title).font(.title3.weight(.semibold))
+                Text(detail)
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+            .allowsHitTesting(false)
             if let action {
                 Button(action.0, action: action.1)
                     .controlSize(.large)
